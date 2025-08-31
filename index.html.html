@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Random Student Picker with QR & Google Form</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      text-align: center;
+      background: url('in.avif') no-repeat center center fixed;
+      background-size: cover;
+      transition: background 0.8s ease;
+    }
+    h2 { color: #fff; }
+
+    /* Landing page styling */
+    #landingPage {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: url('877ced65.png') no-repeat center center;
+      background-size: cover;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 1000;
+    }
+    #landingPage button {
+      margin-top: 20px;
+      padding: 14px 30px;
+      font-size: 20px;
+      background: #4CAF50;
+      border: none;
+      border-radius: 50px;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    #landingPage button:hover {
+      background: #388e3c;
+    }
+
+    /* Hide main app until GO is clicked */
+    #appContainer {
+      display: none;
+      margin-top: 40px;
+    }
+
+    .buttonContainer { margin-bottom: 20px; }
+    
+    #studentContainer {
+      display: inline-block;
+      margin-top: 20px;
+      opacity: 0;
+      transform: scale(0.5);
+      pointer-events: none;
+      transition: opacity 0.6s cubic-bezier(.51,1.62,.59,1), transform 0.6s cubic-bezier(.51,1.62,.59,1);
+    }
+    #studentContainer.show {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+    #studentContainer.hide {
+      opacity: 0;
+      transform: scale(0.5);
+      pointer-events: none;
+    }
+
+    .student-display {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 40px;
+      padding: 20px;
+    }
+    .animated-in {
+      animation: fadeInScale 0.7s ease;
+    }
+    .animated-out {
+      animation: fadeOutScale 0.6s ease;
+    }
+    @keyframes fadeInScale {
+      from { opacity: 0; transform: scale(0.5);}
+      to { opacity: 1; transform: scale(1);}
+    }
+    @keyframes fadeOutScale {
+      from { opacity: 1; transform: scale(1);}
+      to { opacity: 0; transform: scale(0.5);}
+    }
+
+    #qrCode img {
+      width: 150px;
+      height: 150px;
+      border: 5px solid #27ae60;
+      border-radius: 12px;
+      object-fit: cover;
+    }
+    #studentImage {
+      width: 150px;
+      height: 150px;
+      border: 5px solid #d32f2f;
+      border-radius: 12px;
+      object-fit: cover;
+    }
+
+    #randomNumber {
+      font-size: 38px;
+      font-weight: bold;
+      margin: 10px;
+      border: 3px solid gold;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 12px;
+      display: inline-block;
+      background: rgba(40,40,40, 0.8);
+    }
+
+    #history {
+      margin-top: 25px;
+      padding: 12px;
+      max-width: 1000px;
+      margin: auto;
+      border: 1px solid #eecc0f;
+      border-radius: 20px;
+      background: #fff;
+      text-align: left;
+    }
+
+    button {
+      padding: 12px 26px;
+      font-size: 18px;
+      border: none;
+      border-radius: 1000px;
+      margin: 10px;
+      color: white;
+      cursor: pointer;
+    }
+    #callBtn { background-color: #4CAF50; }
+    #callBtn:hover { background-color: #45a049; }
+    #resetBtn { background-color: #f44336; }
+    #resetBtn:hover { background-color: #d32f2f; }
+
+    .confetti {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      top: 10px;
+      border-radius: 50%;
+      animation: fall 3s linear forwards;
+    }
+    @keyframes fall { 
+      to { transform: translateY(100vh) rotate(720deg); } 
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Landing Page -->
+  <div id="landingPage">
+    <img src="877ced65.png" alt="Welcome" width="400" />
+    <button onclick="enterApp()">GO</button>
+  </div>
+
+  <!-- Main App (hidden at first) -->
+  <div id="appContainer">
+    <h2>🎓 Random Student Picker 🎓 </h2>
+    <div class="buttonContainer">
+      <button id="callBtn" onclick="pickStudent()">📞 Call</button>
+      <button id="resetBtn" onclick="resetStudents()">🔄 Reset</button>
+    </div>
+
+    <div id="studentContainer">
+      <div class="student-display">
+        <div id="qrCode"></div>
+        <img id="studentImage" src="p1.jpg" alt="Student Image" />
+      </div>
+      <div id="randomNumber">👉 Waiting for first call...</div>
+    </div>
+
+    <div id="history">
+      <h3>📋 History of Called Students:</h3>
+      <div id="historyList">None yet</div>
+    </div>
+  </div>
+
+  <audio id="dingSound" src="https://www.soundjay.com/buttons/sounds/button-16.mp3" preload="auto"></audio>
+  
+  <script>
+    function preloadVoices() {
+  return new Promise((resolve) => {
+    let voices = speechSynthesis.getVoices();
+    if (voices.length) {
+      resolve(voices);
+    } else {
+      speechSynthesis.onvoiceschanged = () => {
+        voices = speechSynthesis.getVoices();
+        resolve(voices);
+      };
+    }
+  });
+}
+
+async function enterApp() {
+  document.getElementById('landingPage').style.display = 'none';
+  document.getElementById('appContainer').style.display = 'block';
+  await preloadVoices();
+  // You can also play a silent utterance once here to warm up the system if needed
+}
+
+    function enterApp() {
+      document.getElementById("landingPage").style.display = "none";
+      document.getElementById("appContainer").style.display = "block";
+    }
+
+    let students = [
+      "24B11CS011","24B11CS012","24B11CS019","24B11CS022","24B11CS026","24B11CS027",
+      "24B11CS033","24B11CS047","24B11CS053","24B11CS064","24B11CS065","24B11CS066",
+      "24B11CS067","24B11CS068","24B11CS100","24B11CS105","24B11CS110","24B11CS117",
+      "24B11CS126","24B11CS140","24B11CS155","24B11CS157","24B11CS176","24B11CS183",
+      "24B11CS191","24B11CS205","24B11CS210","24B11CS232","24B11CS249","24B11CS251",
+      "24B11CS252","24B11CS266","24B11CS288","24B11CS291","24B11CS292","24B11CS294",
+      "24B11CS296","24B11CS297","24B11CS306","24B11CS327","24B11CS358","24B11CS361",
+      "24B11CS362","24B11CS369","24B11CS373","24B11CS376","24B11CS378","24B11CS382",
+      "24B11CS383","24B11CS385","24B11CS390","24B11CS392","24B11CS394","24B11CS402",
+      "24B11CS404","24B11CS408","24B11CS416","24B11CS430","24B11CS433","24B11CS437",
+      "24B11CS460","24B11CS478","24B11CS483","24B11CS489","24B11CS492","24B11CS495",
+      "24B11CS506","24B11CS518","24B11CS523","24B11CS524","24B11CS545"
+    ];
+
+    let history = [];
+
+    function animateStudentContainer(show) {
+      const container = document.getElementById("studentContainer");
+      if (show) {
+        container.classList.remove("hide", "animated-out");
+        container.classList.add("show", "animated-in");
+      } else {
+        container.classList.remove("show", "animated-in");
+        container.classList.add("hide", "animated-out");
+      }
+    }
+
+function pickStudent() {
+  const container = document.getElementById("studentContainer");
+  const randomBox = document.getElementById("randomNumber");
+  const historyBox = document.getElementById("historyList");
+  const sound = document.getElementById("dingSound");
+  const qrDiv = document.getElementById("qrCode");
+  const studentImage = document.getElementById("studentImage");
+
+  if (students.length === 0) {
+    alert("✅ All students have been picked! Please press RESET.");
+    return;
+  }
+
+  // Animate out previous display first
+  animateStudentContainer(false);
+
+  setTimeout(() => {
+    const randIndex = Math.floor(Math.random() * students.length);
+    const randRoll = students[randIndex];
+    students.splice(randIndex, 1);
+    history.push(randRoll);
+
+    randomBox.innerText = randRoll;
+    qrDiv.innerHTML = `<img src="qr.png" alt="QR">`;
+    studentImage.src = "p1.jpg";
+
+    // Remove previous animationstart handler if any
+    container.onanimationstart = null;
+
+    // Trigger sound and speech on animation start event
+    container.onanimationstart = () => {
+      sound.currentTime = 0;
+      sound.play();
+
+      let shortRoll = randRoll.slice(-5).toUpperCase();
+      let utterance = new SpeechSynthesisUtterance(shortRoll);
+      utterance.lang = "en-IN";
+      utterance.rate = 1.5;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
+
+      // Remove listener to avoid repeat triggers
+      container.onanimationstart = null;
+    };
+
+    // Start animation 
+    animateStudentContainer(true);
+
+    const colors = ["#ffeb3b","#ff9800","#4caf50","#03a9f4","#e91e63","#9c27b0","#00bcd4"];
+    document.body.style.background = colors[Math.floor(Math.random() * colors.length)];
+    historyBox.innerHTML = history.join(", ");
+    launchConfetti();
+
+  }, 500);
+}
+
+
+    function resetStudents() {
+      location.reload();
+    }
+
+    function launchConfetti() {
+      for(let i=0; i<30; i++) {
+        const confetti = document.createElement("div");
+        confetti.classList.add("confetti");
+        confetti.style.left = Math.random()*window.innerWidth + "px";
+        confetti.style.backgroundColor = ["#f1c40f","#e74c3c","#2ecc71","#3498db","#9b59b6","#1abc9c"][Math.floor(Math.random()*6)];
+        confetti.style.animationDuration = (Math.random()*2 + 2) + "s";
+        document.body.appendChild(confetti);
+        setTimeout(() => confetti.remove(), 3000);
+      }
+    }
+  </script>
+</body>
+</html>
