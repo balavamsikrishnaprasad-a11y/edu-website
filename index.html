@@ -95,7 +95,6 @@
     h3{
       color: white;
       text-align: center;
-      
     }
 
     /* Student display */
@@ -284,7 +283,7 @@
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = function(e) {
-        const rollNo = file.name.split(".")[0]; // filename = rollno
+        const rollNo = file.name.split(".")[0].trim().toUpperCase(); // normalize filename
         uploadedPhotos[rollNo] = e.target.result;
 
         const img = document.createElement("img");
@@ -351,15 +350,23 @@
 
     setTimeout(() => {
       const randIndex = Math.floor(Math.random() * students.length);
-      const randRoll = students[randIndex];
+      const randRollRaw = students[randIndex];
+      const randRoll = randRollRaw.trim().toUpperCase(); // normalize roll number
       students.splice(randIndex, 1);
-      history.push(randRoll);
+      history.push(randRollRaw);
 
       historyBox.innerHTML = history.map(roll => `<span class="history-item">${roll}</span>`).join(" ");
 
-      randomBox.innerText = randRoll;
+      randomBox.innerText = randRollRaw;
       qrDiv.innerHTML = '<img src="qr.png" alt="QR"/>';
-      studentImage.src = "p1.jpg";
+
+      // Show uploaded image if exists, else default
+      if (uploadedPhotos[randRoll]) {
+        studentImage.src = uploadedPhotos[randRoll];
+      } else {
+        studentImage.src = "p1.jpg";
+      }
+
       sound.currentTime = 0;
       sound.play();
 
